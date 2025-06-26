@@ -176,13 +176,32 @@ func (s *Stdoutput) Progress(status ffuf.Progress) {
 		reqRate = 0
 	}
 
+	// Calculate percentage
+	var percentage float64
+	if status.ReqTotal > 0 {
+		percentage = float64(status.ReqCount) / float64(status.ReqTotal) * 100
+	}
+
+	// Calculate predicted finish time
+	var finishTimeStr string = ""
+	if reqRate > 0 && status.ReqTotal > status.ReqCount {
+		remainingReqs := status.ReqTotal - status.ReqCount
+		remainingSecs := int64(remainingReqs) / reqRate
+		finishTime := time.Now().Add(time.Duration(remainingSecs) * time.Second)
+		finishTimeStr = finishTime.Format("2006-01-02 15:04:05")
+	}
+
 	hours := dur / time.Hour
 	dur -= hours * time.Hour
 	mins := dur / time.Minute
 	dur -= mins * time.Minute
 	secs := dur / time.Second
 
-	fmt.Fprintf(os.Stderr, "%s:: Progress: [%d/%d] :: Job [%d/%d] :: %d req/sec :: Duration: [%d:%02d:%02d] :: Errors: %d ::", TERMINAL_CLEAR_LINE, status.ReqCount, status.ReqTotal, status.QueuePos, status.QueueTotal, reqRate, hours, mins, secs, status.ErrorCount)
+	if finishTimeStr != "" {
+		fmt.Fprintf(os.Stderr, "%s:: Progress: [%d/%d] [%.2f%%] :: Job [%d/%d] :: %d req/sec :: Duration: [%d:%02d:%02d] :: Finish at: [%s] :: Errors: %d ::", TERMINAL_CLEAR_LINE, status.ReqCount, status.ReqTotal, percentage, status.QueuePos, status.QueueTotal, reqRate, hours, mins, secs, finishTimeStr, status.ErrorCount)
+	} else {
+		fmt.Fprintf(os.Stderr, "%s:: Progress: [%d/%d] [%.2f%%] :: Job [%d/%d] :: %d req/sec :: Duration: [%d:%02d:%02d] :: Errors: %d ::", TERMINAL_CLEAR_LINE, status.ReqCount, status.ReqTotal, percentage, status.QueuePos, status.QueueTotal, reqRate, hours, mins, secs, status.ErrorCount)
+	}
 }
 
 func (s *Stdoutput) Info(infostring string) {
@@ -202,7 +221,7 @@ func (s *Stdoutput) Error(errstring string) {
 		fmt.Fprintf(os.Stderr, "%s", errstring)
 	} else {
 		if !s.config.Colors {
-			fmt.Fprintf(os.Stderr, "%s[ERR] %s\n", TERMINAL_CLEAR_LINE, errstring)
+			fmt.Fprintf(os.Stderr, "%s[ERR] %s\n", TERMINAL_CLEAR_LINE, errstring)
 		} else {
 			fmt.Fprintf(os.Stderr, "%s[%sERR%s] %s\n", TERMINAL_CLEAR_LINE, ANSI_RED, ANSI_CLEAR, errstring)
 		}
